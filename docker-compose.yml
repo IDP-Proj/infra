@@ -29,25 +29,25 @@ services:
     env_file:
       - variables-auth.env
     restart: always
-    ports:
-      - "8888:80"
     volumes:
       - pgadmin-info:/var/lib/pgadmin
     networks:
       - auth_db_network
-    # command: -p 8888
+      - io_db_network
 
   authserver:
     depends_on:
       pgdb:
         condition: service_healthy
+    # for local developement
     image: auth-app:latest
-    container_name: auth-app
+    # if using on M1 with dockerhub image
+    # image: dancodreanu/authserver:latest
+    # platform: linux/arm64 
+    container_name: authserver
     restart: always
     env_file:
       - variables-auth.env
-    # ports:
-    #   - "9000:9000"
     networks:
       - auth_network
 
@@ -72,45 +72,31 @@ services:
       retries: 5
       start_period: 15s
 
-  pgadmin4-container-io: 
-    depends_on:
-      - pgdbio
-    image: dpage/pgadmin4
-    container_name: pgadmin4-container-io
-    env_file:
-      - variables-io.env
-    restart: always
-    ports:
-      - "8999:80"
-    volumes:
-      - pgadmin-info-io:/var/lib/pgadmin
-    networks:
-      - io_db_network
-    # command: -p 8999
-
   ioserver: 
     depends_on:
       pgdbio:
         condition: service_healthy
     image: io-app:latest
-    container_name: io-app
+    # if using on M1 with dockerhub image
+    # image: dancodreanu/ioserver:latest
+    # platform: linux/arm64 
+    container_name: ioserver
     restart: always
     env_file:
       - variables-io.env
-    # ports:
-    #   - "9002:9002"
     networks:
       - io_network
 
   businessserver:
+    # if using on M1 with dockerhub image
+    # image: dancodreanu/businessserver:latest
+    # platform: linux/arm64 
     image: business-app:latest
     depends_on:
       - ioserver
       - authserver
-    container_name: business-app
+    container_name: businessserver
     restart: always
-    # ports:
-    #   - "9001:9001"
     networks:
       - auth_network
       - io_network
@@ -132,7 +118,7 @@ services:
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
     ports:
-      - "80:8000"
+      - "3030:8000"
       - "443:8443"
     networks:
       - auth_db_network
