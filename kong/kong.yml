@@ -19,11 +19,11 @@ services:
           - /api/v1
 
   - name: auth-pgadmin
-      url: http://pgadmin4-container
-      routes:
-        - name: auth-pgadmin
-          hosts:
-            - "database.*"
-          preserve_host: true
-          paths:
-           - /  
+    url: http://pgadmin4-container
+    routes:
+      - name: auth-pgadmin
+        hosts:
+          - "database.*"
+        preserve_host: true
+        paths:
+          - /
