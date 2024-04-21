@@ -27,3 +27,13 @@ services:
         preserve_host: true
         paths:
           - /
+
+  - name: portainer-service
+    url: http://portainer:9000
+    routes:
+      - name: portainer-service-route
+        hosts:
+          - "portainer.*"
+        preserve_host: true
+        paths:
+          - /

@@ -126,6 +126,18 @@ services:
       - io_db_network
       - io_network
 
+  portainer:
+    image: portainer/portainer-ce:2.11.1
+    command: -H unix:///var/run/docker.sock
+    container_name: portainer
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "portainer_data:/data"
+    restart: always
+    networks:
+      - auth_network
+      - io_network
+
 volumes:
   postgres-db:
     name: auth-server_postgres-db
@@ -141,6 +153,8 @@ volumes:
     external: true
   kong:
     name: kong
+  portainer_data:
+    name: portainer_data
 
 networks:
   auth_db_network:
