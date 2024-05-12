@@ -64,6 +64,7 @@ services:
     restart: always
     volumes:
       - postgres-db-io:/var/lib/postgresql/data
+      - ./main-db-dump.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - io_db_network
       - io_network
