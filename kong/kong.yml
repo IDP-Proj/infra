@@ -6,11 +6,11 @@ services:
     routes:
       - name: auth-service-route
         hosts:
-          - "auth.hrmaster.local"
+          - "auth.*"
         preserve_host: true
         paths:
           - /
-  
+
   - name: business-service
     url: http://businessserver:9001/api/v1
     routes:

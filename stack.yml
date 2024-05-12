@@ -1,0 +1,193 @@
+version: "3.8"
+services:
+  pgdb:
+    image: postgres
+    container_name: pgdb
+    env_file:
+      - variables-auth.env
+    restart: always
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+    networks:
+      - auth_db_network
+      - auth_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres-auth -d auth-db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+  pgadmin4-container:
+    depends_on:
+      - pgdb
+    image: dpage/pgadmin4
+    container_name: pgadmin4-container
+    env_file:
+      - variables-auth.env
+    restart: always
+    volumes:
+      - pgadmin-info:/var/lib/pgadmin
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+    networks:
+      - auth_db_network
+      - io_db_network
+
+  authserver:
+    depends_on:
+      - pgdb
+    image: dancodreanu/authserver:latest
+    container_name: authserver
+    restart: always
+    env_file:
+      - variables-auth.env
+    networks:
+      - auth_network
+    deploy:
+      mode: replicated
+      replicas: 1
+
+  pgdbio:
+    image: postgres
+    container_name: pgdbio
+    env_file:
+      - variables-io.env
+    restart: always
+    volumes:
+      - postgres-db-io:/var/lib/postgresql/data
+    networks:
+      - io_db_network
+      - io_network
+    command: -p 5001
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -p 5001 -U postgres-io -d main-db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+  ioserver:
+    depends_on:
+      - pgdbio
+    image: dancodreanu/ioserver:latest
+    container_name: ioserver
+    restart: always
+    env_file:
+      - variables-io.env
+    deploy:
+      mode: replicated
+      replicas: 1
+    networks:
+      - io_network
+
+  businessserver:
+    image: dancodreanu/businessserver:latest
+    depends_on:
+      - ioserver
+      - authserver
+    container_name: businessserver
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    networks:
+      - auth_network
+      - io_network
+
+  kong:
+    image: kong:latest
+    container_name: kong_gateway
+    depends_on:
+      - authserver
+      - businessserver
+    volumes:
+      - ./kong:/usr/local/kong/declarative
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+    ports:
+      - "3030:8000"
+      - "443:8443"
+    networks:
+      - auth_db_network
+      - auth_network
+      - io_db_network
+      - io_network
+
+  agent:
+    image: portainer/agent:2.19.5
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/var/lib/docker/volumes:/var/lib/docker/volumes"
+    deploy:
+      mode: global
+      placement:
+        constraints: [node.platform.os == linux]
+    networks:
+      - auth_db_network
+      - auth_network
+      - io_db_network
+      - io_network
+
+  portainer:
+    image: portainer/portainer:latest
+    command: -H tcp://tasks.agent:9001 --tlsskipverify
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "portainer_data:/data"
+    networks:
+      - auth_db_network
+      - auth_network
+      - io_db_network
+      - io_network
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+volumes:
+  postgres-db: {}
+  pgadmin-info: {}
+  postgres-db-io: {}
+  pgadmin-info-io: {}
+  kong: {}
+  portainer_data: {}
+
+networks:
+  auth_db_network:
+    driver: overlay
+    attachable: true
+  auth_network:
+    driver: overlay
+    attachable: true
+  io_db_network:
+    driver: overlay
+    attachable: true
+  io_network:
+    driver: overlay
+    attachable: true
